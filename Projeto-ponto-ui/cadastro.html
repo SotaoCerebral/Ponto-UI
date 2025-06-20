@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro - Sistema de Ponto Eletrônico</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body data-theme="light">
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <i class="fas fa-user-plus"></i>
+                <h1>Criar Conta</h1>
+                <p>Preencha os dados para se cadastrar</p>
+            </div>
+            
+            <form id="registerForm" class="auth-form">
+                <div class="input-group">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" id="email" placeholder="E-mail" required>
+                </div>
+                
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="senha" placeholder="Senha" required minlength="6">
+                </div>
+                
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="confirmSenha" placeholder="Confirmar Senha" required minlength="6">
+                </div>
+                
+                <button type="submit" class="btn-success" id="registerBtn">
+                    <i class="fas fa-user-plus"></i>
+                    Criar Conta
+                </button>
+            </form>
+            
+            <div class="auth-footer">
+                <p>Já tem uma conta? 
+                    <a href="index.html">Fazer login</a>
+                </p>
+            </div>
+            
+            <div id="registerError" class="error-message hidden"></div>
+            <div id="registerSuccess" class="success-message hidden"></div>
+        </div>
+        
+        <button id="themeToggle" class="theme-toggle-btn" title="Alternar tema">
+            <i class="fas fa-moon"></i>
+        </button>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Criando conta...</p>
+        </div>
+    </div>
+
+   <!-- ... início do HTML mantido igual ... -->
+
+    <!-- Scripts -->
+    <script src="js/theme.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        // Inicialização específica da página de cadastro
+        document.addEventListener('DOMContentLoaded', function() {
+            // Verificar se já está logado
+            const userData = Auth.getCurrentUser();
+            if (userData) {
+                if (userData.role === 'ADMIN') {
+                    window.location.href = 'admin.html';
+                } else {
+                    window.location.href = 'ponto.html';
+                }
+            }
+
+            const registerForm = document.getElementById('registerForm');
+            registerForm.addEventListener('submit', handleRegister);
+        });
+
+        // NOVA FUNÇÃO handleRegister:
+        async function handleRegister(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const senha = document.getElementById('senha').value;
+            const confirmSenha = document.getElementById('confirmSenha').value;
+            const role = 'COMUM';
+            
+            if (!email || !senha || !confirmSenha) {
+                showError('Todos os campos são obrigatórios');
+                return;
+            }
+
+            if (senha !== confirmSenha) {
+                showError('As senhas não coincidem');
+                return;
+            }
+
+            if (senha.length < 6) {
+                showError('A senha deve ter pelo menos 6 caracteres');
+                return;
+            }
+            
+            try {
+                showLoading();
+                const response = await Auth.register(email, senha, role);
+                
+                if (response.success) {
+                    showSuccess('Conta criada com sucesso! Redirecionando para o login...');
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 2000);
+                } else {
+                    showError(response.message || 'Erro ao criar conta');
+                }
+            } catch (error) {
+                showError('Erro de conexão. Verifique sua internet.');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('registerError');
+            const successDiv = document.getElementById('registerSuccess');
+            
+            successDiv.classList.add('hidden');
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('hidden');
+            
+            setTimeout(() => {
+                errorDiv.classList.add('hidden');
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            const errorDiv = document.getElementById('registerError');
+            const successDiv = document.getElementById('registerSuccess');
+            
+            errorDiv.classList.add('hidden');
+            successDiv.textContent = message;
+            successDiv.classList.remove('hidden');
+        }
+
+        function showLoading() {
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
