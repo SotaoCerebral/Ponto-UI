@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Ponto - Sistema de Ponto Eletrônico</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body data-theme="light">
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-clock"></i>
+                    <span>Registro de Ponto</span>
+                </div>
+                <div class="header-controls">
+                    <button id="themeToggle" class="btn-icon" title="Alternar tema">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                    <div class="user-info">
+                        <div class="avatar" id="userAvatar">U</div>
+                        <div class="user-details">
+                            <span id="userName">Usuário</span>
+                            <small id="userRole">COMUM</small>
+                        </div>
+                    </div>
+                    <button id="logoutBtn" class="btn-modern" title="Sair">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-fingerprint"></i> Registrar Ponto</h2>
+                    <div class="current-time" id="currentTime"></div>
+                </div>
+                <div class="card-body">
+                    <form id="pontoForm" class="ponto-form">
+                        <div class="input-group">
+                            <label for="descricao">
+                                <i class="fas fa-comment"></i>
+                                Descrição
+                            </label>
+                            <input type="text" id="descricao" placeholder="Descrição do registro (ex: Chegada ao trabalho)" required>
+                        </div>
+                        
+                        <div class="input-group">
+                            <label for="tipoEntrada">
+                                <i class="fas fa-toggle-on"></i>
+                                Tipo de Registro
+                            </label>
+                            <select id="tipoEntrada" required>
+                                <option value="">Selecione o tipo</option>
+                                <option value="ENTRADA">Entrada</option>
+                                <option value="SAIDA">Saída</option>
+                            </select>
+                        </div>
+                        
+                        <div class="registro-preview" id="registroPreview" style="display: none;">
+                            <h4><i class="fas fa-eye"></i> Pré-visualização do Registro</h4>
+                            <div class="preview-content">
+                                <p><strong>Descrição:</strong> <span id="previewDescricao"></span></p>
+                                <p><strong>Tipo:</strong> <span id="previewTipo"></span></p>
+                                <p><strong>Data/Hora:</strong> <span id="previewDataHora"></span></p>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn-modern" id="registrarBtn">
+                            <i class="fas fa-check"></i>
+                            Registrar Ponto
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Histórico dos últimos registros -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-history"></i> Últimos Registros</h3>
+                    <button id="refreshHistorico" class="btn-modern">
+                        <i class="fas fa-sync"></i>
+                        Atualizar
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="historicoList" class="historico-list"></div>
+                    <div id="loadingHistorico" class="loading hidden">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        Carregando histórico...
+                    </div>
+                    <div id="emptyHistorico" class="empty-state hidden">
+                        <i class="fas fa-inbox"></i>
+                        <p>Nenhum registro encontrado</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal de Sucesso -->
+    <div id="successModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header success">
+                <i class="fas fa-check-circle"></i>
+                <h3>Ponto Registrado!</h3>
+            </div>
+            <div class="modal-body">
+                <p id="successMessage">Seu ponto foi registrado com sucesso!</p>
+                <div class="modal-details">
+                    <p><strong>Horário:</strong> <span id="modalHorario"></span></p>
+                    <p><strong>Tipo:</strong> <span id="modalTipo"></span></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="closeModal('successModal')">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Erro -->
+    <div id="errorModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header error">
+                <i class="fas fa-exclamation-circle"></i>
+                <h3>Erro!</h3>
+            </div>
+            <div class="modal-body">
+                <p id="errorMessage">Ocorreu um erro ao registrar o ponto.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-danger" onclick="closeModal('errorModal')">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Registrando ponto...</p>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/theme.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const userData = Auth.getCurrentUser();
+            if (!userData) {
+                window.location.href = 'index.html';
+                return;
+            }
+            if (userData.role !== 'COMUM') {
+                window.location.href = 'admin.html';
+                return;
+            }
+
+            initializePage();
+            updateClock();
+            setInterval(updateClock, 1000);
+            loadHistorico();
+
+            document.getElementById('pontoForm').addEventListener('submit', handleRegistrarPonto);
+            document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+            document.getElementById('refreshHistorico').addEventListener('click', loadHistorico);
+            document.getElementById('descricao').addEventListener('input', updatePreview);
+            document.getElementById('tipoEntrada').addEventListener('change', updatePreview);
+        });
+
+        function initializePage() {
+            const userData = Auth.getCurrentUser();
+            document.getElementById('userName').textContent = userData.email.split('@')[0];
+            document.getElementById('userRole').textContent = userData.role;
+            document.getElementById('userAvatar').textContent = userData.email.charAt(0).toUpperCase();
+        }
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('currentTime').textContent = now.toLocaleString('pt-BR');
+        }
+
+        function updatePreview() {
+            const descricao = document.getElementById('descricao').value;
+            const tipo = document.getElementById('tipoEntrada').value;
+            const preview = document.getElementById('registroPreview');
+
+            if (descricao && tipo) {
+                document.getElementById('previewDescricao').textContent = descricao;
+                document.getElementById('previewTipo').textContent = tipo;
+                document.getElementById('previewDataHora').textContent = new Date().toLocaleString('pt-BR');
+                preview.style.display = 'block';
+            } else {
+                preview.style.display = 'none';
+            }
+        }
+
+        async function handleRegistrarPonto(e) {
+            e.preventDefault();
+            const userData = Auth.getCurrentUser();
+            const descricao = document.getElementById('descricao').value;
+            const tipoEntrada = document.getElementById('tipoEntrada').value;
+
+            if (!descricao || !tipoEntrada) {
+                showErrorModal('Todos os campos são obrigatórios');
+                return;
+            }
+
+            try {
+                showLoading();
+                const pontoData = {
+                    descricao,
+                    UsuarioId: userData.id,
+                    entradas: tipoEntrada
+                };
+                const response = await API.registrarPonto(pontoData);
+
+                if (response.success) {
+                    showSuccessModal(descricao, tipoEntrada);
+                    document.getElementById('pontoForm').reset();
+                    document.getElementById('registroPreview').style.display = 'none';
+                    loadHistorico();
+                } else {
+                    showErrorModal(response.message || 'Erro ao registrar ponto');
+                }
+            } catch (error) {
+                showErrorModal('Erro de conexão. Verifique sua internet.');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function loadHistorico() {
+    const historicoDiv = document.getElementById('historicoList');
+    const loadingDiv = document.getElementById('loadingHistorico');
+    const emptyDiv = document.getElementById('emptyHistorico');
+
+    try {
+        loadingDiv.classList.remove('hidden');
+        historicoDiv.innerHTML = '';
+        emptyDiv.classList.add('hidden');
+
+        const pontos = await API.listarPontos(); // já retorna só os do usuário comum
+
+        if (pontos && pontos.length > 0) {
+            pontos.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'historico-item';
+                div.innerHTML = `
+                    <div class="historico-info">
+                        <strong>${item.descricao}</strong>
+                        <span class="historico-tipo ${item.entradas.toLowerCase()}">${item.entradas}</span>
+                        <small>${new Date(item.horario).toLocaleString('pt-BR')}</small>
+                    </div>
+                `;
+                historicoDiv.appendChild(div);
+            });
+        } else {
+            emptyDiv.classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Erro ao carregar histórico:', error);
+        emptyDiv.classList.remove('hidden');
+    } finally {
+        loadingDiv.classList.add('hidden');
+    }
+}
+
+
+        function showSuccessModal(descricao, tipo) {
+            document.getElementById('successMessage').textContent = `Ponto registrado: ${descricao}`;
+            document.getElementById('modalHorario').textContent = new Date().toLocaleString('pt-BR');
+            document.getElementById('modalTipo').textContent = tipo;
+            document.getElementById('successModal').classList.remove('hidden');
+        }
+
+        function showErrorModal(message) {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorModal').classList.remove('hidden');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        function handleLogout() {
+            Auth.logout();
+            window.location.href = 'index.html';
+        }
+
+        function showLoading() {
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
